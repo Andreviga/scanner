@@ -254,6 +254,9 @@ canvas{display:none;}
 
 <!-- TAB SAÍDA -->
 <div id="p-saida" class="panel">
+  <div style="background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:10px;padding:9px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;font-size:.78rem;font-weight:700;color:#1d4ed8;">
+    🚪 ABA DE SAÍDA — registra quando alguém SAI da festa. Para entrar, use a aba Entrada.
+  </div>
   <div class="scan-card sm" id="sc-s">
     <div class="scan-top">🚪 Leitor QR — Saída</div>
     <div class="scan-idle" id="idle-s">
@@ -274,7 +277,7 @@ canvas{display:none;}
   <div class="div">ou insira o número do pedido</div>
   <div class="row">
     <input type="number" class="field sf" id="manS" placeholder="Ex: 19105" inputmode="numeric" autocomplete="off">
-    <button class="btn btn-b" onclick="validarSaida()">Registrar saída</button>
+    <button class="btn btn-b" onclick="validarSaida()" style="background:#1d4ed8;font-size:.9rem;padding:10px 14px;">🚪 Saída</button>
   </div>
   <div class="card">
     <div class="card-h">Últimas saídas desta sessão</div>
@@ -473,6 +476,8 @@ function mostrarErrCam(t, msg) {
 ══════════════════════════════════════════════════════════ */
 function showTab(id, el) {
   ['e','s'].forEach(function(t) { pararCam(t); });
+  // Limpa resultados anteriores ao trocar de aba
+  setRes('e', ''); setRes('s', '');
   document.querySelectorAll('.tbtn').forEach(function(b) { b.classList.remove('on'); });
   document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('on'); });
   el.classList.add('on');
@@ -505,10 +510,12 @@ function validarEntrada() {
   document.getElementById('manE').value = '';
   checkin(v);
 }
-document.getElementById('manE').addEventListener('keydown', function(e) { if (e.key==='Enter') validarEntrada(); });
+document.getElementById('manE').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); validarEntrada(); }
+});
 
 function checkin(txt) {
-    setRes('e', '<div class="ld"><div class="sp"></div>Verificando...</div>');
+    setRes('s', ''); setRes('e', '<div class="ld"><div class="sp"></div>Verificando...</div>');
   api({ action: 'checkin', code: txt })
     .then(function(r) {
       mostrarResE(r); addHist('e', r); refreshStats();
@@ -563,10 +570,12 @@ function validarSaida() {
   document.getElementById('manS').value = '';
   saidaOp(v);
 }
-document.getElementById('manS').addEventListener('keydown', function(e) { if (e.key==='Enter') validarSaida(); });
+document.getElementById('manS').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); validarSaida(); }
+});
 
 function saidaOp(txt) {
-  setRes('s', '<div class="ld"><div class="sp"></div>Verificando...</div>');
+  setRes('e', ''); setRes('s', '<div class="ld"><div class="sp"></div>Verificando...</div>');
   api({ action: 'saida', code: txt })
     .then(function(r) {
       mostrarResS(r); addHist('s', r); refreshStats();
