@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Scanner – Arraia Raízes 2026</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#0f0f0f;color:#fff;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;}
+h1{font-size:1rem;font-weight:700;color:#F59E0B;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;text-align:center;}
+p.sub{font-size:.72rem;color:#666;margin-bottom:16px;text-align:center;}
+.wrap{width:100%;max-width:380px;}
+.scan-box{position:relative;border-radius:14px;overflow:hidden;border:2px solid #D97706;background:#000;margin-bottom:12px;}
+.scan-lbl{background:#D97706;color:#fff;font-size:.7rem;font-weight:700;text-align:center;padding:7px;text-transform:uppercase;letter-spacing:.5px;}
+video{width:100%;max-height:320px;object-fit:cover;display:block;}
+canvas{display:none;}
+.scan-ov{position:absolute;inset:36px 0 0 0;display:flex;align-items:center;justify-content:center;pointer-events:none;}
+.scan-fr{width:200px;height:200px;position:relative;}
+.scan-fr::before,.scan-fr::after,.scan-fr i::before,.scan-fr i::after{content:'';position:absolute;width:22px;height:22px;border:3px solid #F59E0B;}
+.scan-fr::before{top:0;left:0;border-right:none;border-bottom:none;border-radius:2px 0 0 0;}
+.scan-fr::after{top:0;right:0;border-left:none;border-bottom:none;border-radius:0 2px 0 0;}
+.scan-fr i::before{bottom:0;left:0;border-right:none;border-top:none;border-radius:0 0 0 2px;}
+.scan-fr i::after{bottom:0;right:0;border-left:none;border-top:none;border-radius:0 0 2px 0;}
+.scan-bar{position:absolute;left:0;right:0;top:36px;height:2px;background:linear-gradient(90deg,transparent,#F59E0B,transparent);animation:sb 1.8s ease-in-out infinite;}
+@keyframes sb{0%,100%{transform:translateY(0);}50%{transform:translateY(280px);}}
+.idle{display:flex;flex-direction:column;align-items:center;gap:12px;padding:32px 20px;min-height:200px;}
+.idle-ico{font-size:3rem;}
+button{width:100%;border:none;border-radius:12px;font-family:inherit;font-weight:700;font-size:1rem;padding:13px;cursor:pointer;transition:opacity .15s;}
+button:active{opacity:.8;}
+.btn-start{background:#D97706;color:#fff;margin-bottom:8px;}
+.btn-saida{background:#2563EB;color:#fff;margin-bottom:8px;}
+.btn-fechar{background:#1f1f1f;color:#999;font-size:.8rem;padding:10px;}
+.err{background:#7f1d1d;color:#fca5a5;border-radius:8px;padding:10px 14px;font-size:.78rem;text-align:center;margin-bottom:10px;display:none;}
+.ok-box{background:#14532d;color:#4ade80;border-radius:10px;padding:16px;text-align:center;margin-bottom:10px;display:none;animation:pop .2s ease-out;}
+@keyframes pop{from{opacity:0;transform:scale(.95);}to{opacity:1;transform:none;}}
+.ok-ico{font-size:2rem;margin-bottom:6px;}
+.ok-code{font-family:monospace;font-size:.85rem;color:#86efac;margin-top:4px;}
+.mode-bar{display:flex;gap:6px;margin-bottom:10px;}
+.mchip{flex:1;border:1.5px solid #333;border-radius:20px;padding:7px;font-size:.72rem;font-weight:700;background:transparent;color:#666;cursor:pointer;font-family:inherit;transition:all .15s;}
+.mchip.on{background:#D97706;border-color:#D97706;color:#fff;}
+.mchip.on-s{background:#2563EB;border-color:#2563EB;color:#fff;}
+.hint{font-size:.68rem;color:#555;text-align:center;margin-top:8px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🌽 Arraia Raízes 2026</h1>
+  <p class="sub">Scanner de ingressos · 13/06/2026</p>
+
+  <!-- Modo: entrada ou saída -->
+  <div class="mode-bar">
+    <button class="mchip on"  id="mEntrada" onclick="setMode('entrada')">📷 Entrada</button>
+    <button class="mchip"     id="mSaida"   onclick="setMode('saida')">🚪 Saída</button>
+  </div>
+
+  <div class="err" id="errBox"></div>
+  <div class="ok-box" id="okBox">
+    <div class="ok-ico">✅</div>
+    <div id="okMsg">Código lido!</div>
+    <div class="ok-code" id="okCode"></div>
+  </div>
+
+  <div class="scan-box" id="scanBox">
+    <div class="scan-lbl" id="scanLbl">📷 Scanner — Entrada</div>
+
+    <div class="idle" id="idleBox">
+      <div class="idle-ico">📷</div>
+      <button class="btn-start" onclick="iniciar()">Toque para escanear</button>
+    </div>
+
+    <div id="liveBox" style="display:none;position:relative;">
+      <video id="vid" autoplay playsinline muted></video>
+      <canvas id="cv"></canvas>
+      <div class="scan-ov"><div class="scan-fr"><i></i></div></div>
+      <div class="scan-bar"></div>
+    </div>
+  </div>
+
+  <button class="btn-fechar" onclick="fechar()">✕ Fechar scanner</button>
+  <div class="hint">Este scanner envia o resultado para a janela do sistema de check-in</div>
+</div>
+
+<script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
+<script>
+var MODE='entrada', stream=null, scanning=false, rafId=null;
+var useNative='BarcodeDetector' in window, det=null;
+if(useNative){try{det=new BarcodeDetector({formats:['qr_code']});}catch(e){useNative=false;}}
+
+/* destino das mensagens — aceita qualquer origem */
+var TARGET_ORIGIN='*';
+
+function setMode(m){
+  MODE=m;
+  document.getElementById('mEntrada').className='mchip'+(m==='entrada'?' on':'');
+  document.getElementById('mSaida').className='mchip'+(m==='saida'?' on-s':'');
+  document.getElementById('scanLbl').textContent=(m==='entrada'?'📷 Scanner — Entrada':'🚪 Scanner — Saída');
+}
+
+function iniciar(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    mostrarErr('Câmera não disponível neste dispositivo/navegador.');return;
+  }
+  document.getElementById('idleBox').style.display='none';
+  navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280}}})
+  .then(function(s){
+    stream=s;
+    var vid=document.getElementById('vid');
+    vid.srcObject=s;
+    vid.onloadedmetadata=function(){
+      document.getElementById('liveBox').style.display='block';
+      vid.play().then(function(){
+        scanning=true;
+        if(useNative&&det) loopNativo(vid);
+        else loopCanvas(vid);
+      });
+    };
+  })
+  .catch(function(e){
+    document.getElementById('idleBox').style.display='flex';
+    var m='Não foi possível acessar a câmera.';
+    if(e.name==='NotAllowedError') m='Permissão negada. Permita o acesso à câmera quando solicitado.';
+    else if(e.name==='NotFoundError') m='Nenhuma câmera encontrada.';
+    else if(e.name==='NotReadableError') m='Câmera em uso por outro app.';
+    mostrarErr(m);
+  });
+}
+
+function loopNativo(vid){
+  if(!scanning)return;
+  det.detect(vid).then(function(cs){
+    if(cs.length>0){onDetected(cs[0].rawValue);}
+    else if(scanning) rafId=requestAnimationFrame(function(){loopNativo(vid);});
+  }).catch(function(){
+    if(scanning) rafId=requestAnimationFrame(function(){loopNativo(vid);});
+  });
+}
+
+function loopCanvas(vid){
+  if(!scanning)return;
+  var cv=document.getElementById('cv');
+  var ctx=cv.getContext('2d');
+  if(vid.readyState===vid.HAVE_ENOUGH_DATA){
+    cv.width=vid.videoWidth;cv.height=vid.videoHeight;
+    ctx.drawImage(vid,0,0);
+    var d=ctx.getImageData(0,0,cv.width,cv.height);
+    var c=jsQR(d.data,d.width,d.height,{inversionAttempts:'dontInvert'});
+    if(c&&c.data){onDetected(c.data.trim());return;}
+  }
+  rafId=requestAnimationFrame(function(){loopCanvas(vid);});
+}
+
+function onDetected(code){
+  scanning=false;
+  if(rafId){cancelAnimationFrame(rafId);rafId=null;}
+  pararStream();
+
+  /* Mostra feedback visual */
+  document.getElementById('liveBox').style.display='none';
+  document.getElementById('idleBox').style.display='flex';
+  document.getElementById('okCode').textContent='Código: '+code;
+  document.getElementById('okMsg').textContent=MODE==='entrada'?'Entrada registrada!':'Saída registrada!';
+  document.getElementById('okBox').style.display='block';
+
+  /* Envia para janela pai (GAS app) */
+  var msg={type:'qr_scan', code:code.trim(), mode:MODE};
+  if(window.opener&&!window.opener.closed){
+    window.opener.postMessage(msg, TARGET_ORIGIN);
+    setTimeout(function(){window.close();},1200);
+  } else {
+    /* Se não tem opener (aberto diretamente), mostra o código */
+    document.getElementById('okMsg').textContent='Código lido — copie e valide manualmente:';
+    setTimeout(function(){
+      document.getElementById('okBox').style.display='none';
+      scanning=true;
+      document.getElementById('idleBox').style.display='flex';
+    },4000);
+  }
+}
+
+function pararStream(){
+  if(stream){stream.getTracks().forEach(function(t){t.stop();});stream=null;}
+}
+
+function fechar(){
+  pararStream();
+  if(window.opener&&!window.opener.closed) window.opener.focus();
+  window.close();
+}
+
+function mostrarErr(msg){
+  var el=document.getElementById('errBox');
+  el.textContent=msg;el.style.display='block';
+  setTimeout(function(){el.style.display='none';},6000);
+}
+</script>
+</body>
+</html>
