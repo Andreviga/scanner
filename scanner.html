@@ -19,26 +19,6 @@ body{font-family:'Inter',system-ui,sans-serif;background:#F7F6F3;color:#1C1917;-
   --bd:#E7E5E4;
 }
 
-/* ── SETUP ──────────────────────────────────────────────────────── */
-#setup{
-  min-height:100vh;display:flex;align-items:center;justify-content:center;
-  background:#fff;padding:24px;
-}
-.setup-box{width:100%;max-width:400px;}
-.setup-logo{font-size:2.8rem;text-align:center;margin-bottom:8px;}
-.setup-title{font-size:1.1rem;font-weight:800;text-align:center;margin-bottom:4px;}
-.setup-sub{font-size:.75rem;color:var(--gr);text-align:center;margin-bottom:24px;}
-.setup-label{font-size:.75rem;font-weight:700;color:var(--gr);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:block;}
-.setup-input{width:100%;border:2px solid var(--bd);border-radius:10px;font-family:inherit;font-size:.9rem;padding:11px 13px;outline:none;transition:border-color .15s;color:#1C1917;}
-.setup-input:focus{border-color:var(--a);}
-.setup-input::placeholder{color:#C7B9A8;font-size:.82rem;}
-.setup-btn{width:100%;margin-top:12px;border:none;border-radius:10px;background:var(--a);color:#fff;font-family:inherit;font-weight:700;font-size:1rem;padding:13px;cursor:pointer;transition:opacity .15s;}
-.setup-btn:hover{opacity:.9;}
-.setup-err{background:var(--rl);color:var(--r);border-radius:8px;padding:8px 12px;font-size:.76rem;margin-top:10px;display:none;}
-.setup-err.vis{display:block;}
-.setup-hint{font-size:.7rem;color:var(--gr);text-align:center;margin-top:14px;line-height:1.6;}
-.setup-hint a{color:var(--a);}
-
 /* ── APP ────────────────────────────────────────────────────────── */
 #app{display:none;}
 
@@ -47,7 +27,6 @@ body{font-family:'Inter',system-ui,sans-serif;background:#F7F6F3;color:#1C1917;-
 .brand{display:flex;align-items:center;gap:10px;padding:10px 16px 8px;}
 .b-icon{width:32px;height:32px;border-radius:8px;background:var(--a);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
 .b-name{font-size:.82rem;font-weight:700;}.b-sub{font-size:.65rem;color:var(--gr);}
-.b-cfg{margin-left:auto;background:none;border:1px solid var(--bd);border-radius:8px;font-size:.65rem;padding:4px 8px;cursor:pointer;color:var(--gr);font-family:inherit;}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--bd);}
 .sbox{padding:8px 4px;text-align:center;border-right:1px solid var(--bd);}
 .sbox:last-child{border-right:none;}
@@ -207,7 +186,7 @@ canvas{display:none;}
 .exp-qr{width:120px;height:120px;margin:8px auto;display:block;border-radius:4px;}
 .exp-qt{font-size:.7rem;color:var(--gr);margin-top:4px;}.exp-evt{font-size:.63rem;color:var(--gr);margin-top:6px;line-height:1.5;}
 @media print{
-  #setup,#app .top,.tabs,.panel{display:none!important;}
+  #app .top,.tabs,.panel{display:none!important;}
   #expOv{display:block!important;position:static!important;padding:0!important;}
   .exp-hdr{display:none!important;}
   .exp-grid{grid-template-columns:repeat(3,1fr);gap:8px;}
@@ -223,34 +202,12 @@ canvas{display:none;}
 </head>
 <body>
 
-<!-- ══ TELA DE CONFIGURAÇÃO ════════════════════════════════════ -->
-<div id="setup">
-  <div class="setup-box">
-    <div class="setup-logo">🌽</div>
-    <div class="setup-title">Festa Caipira Raízes 2026</div>
-    <div class="setup-sub">Sistema de check-in da portaria</div>
-    <label class="setup-label">URL do Google Apps Script</label>
-    <input class="setup-input" id="gasUrlIn" type="url"
-           placeholder="https://script.google.com/macros/s/.../exec"
-           autocomplete="off" autocorrect="off" spellcheck="false">
-    <button class="setup-btn" onclick="salvarConfig()">Entrar no sistema →</button>
-    <div class="setup-err" id="setupErr"></div>
-    <div class="setup-hint">
-      Cole o link de implantação do Apps Script.<br>
-      Ele começa com <strong>script.google.com/macros/s/</strong><br>
-      <br>
-      Esta configuração é salva neste dispositivo e não precisa ser feita novamente.
-    </div>
-  </div>
-</div>
-
 <!-- ══ APLICATIVO PRINCIPAL ════════════════════════════════════ -->
-<div id="app">
+<div id="app" style="display:none">
 <div class="top">
   <div class="brand">
     <div class="b-icon">🌽</div>
     <div><div class="b-name">Festa Caipira Raízes 2026</div><div class="b-sub">13 de junho · Colégio Raízes · Cidade Líder, SP</div></div>
-    <button class="b-cfg" onclick="reconfigurar()">⚙ Config</button>
   </div>
   <div class="stats">
     <div class="sbox"><span class="sn g" id="sEnt">–</span><span class="sl">Dentro agora</span></div>
@@ -386,7 +343,7 @@ canvas{display:none;}
 /* ══════════════════════════════════════════════════════════
    API
 ══════════════════════════════════════════════════════════ */
-var GAS_URL = localStorage.getItem('gasUrl') || '';
+var GAS_URL = "https://script.google.com/macros/s/AKfycbw-7Ak-NfgRldC76JIAEKdqKUBn1eSePRh6mJb33AvVAwYevxgG06YPNNlQHguybcSy/exec";
 
 async function api(params) {
   const url = new URL(GAS_URL);
@@ -398,59 +355,20 @@ async function api(params) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   SETUP / CONFIG
 ══════════════════════════════════════════════════════════ */
-function salvarConfig() {
-  var url = document.getElementById('gasUrlIn').value.trim();
-  if (!url || !url.includes('script.google.com')) {
-    mostrarSetupErr('Cole a URL correta do Google Apps Script.');
-    return;
-  }
-  var btn = document.querySelector('.setup-btn');
-  btn.textContent = 'Verificando...'; btn.disabled = true;
-  GAS_URL = url;
-  api({ action: 'stats' })
-    .then(function(s) {
-      if (s && s.totalVendidos !== undefined) {
-        localStorage.setItem('gasUrl', url);
-        iniciarApp(s);
-      } else {
-        mostrarSetupErr('URL respondeu, mas formato inesperado. Verifique o deploy.');
-        btn.textContent = 'Entrar no sistema →'; btn.disabled = false;
-      }
-    })
-    .catch(function(e) {
-      mostrarSetupErr('Não foi possível conectar: ' + e.message + '. Verifique a URL e o deploy.');
-      btn.textContent = 'Entrar no sistema →'; btn.disabled = false;
-    });
-}
 
-function mostrarSetupErr(msg) {
-  var el = document.getElementById('setupErr');
-  el.textContent = msg; el.classList.add('vis');
-}
-
-function reconfigurar() {
-  document.getElementById('app').style.display = 'none';
-  document.getElementById('setup').style.display = 'flex';
-  document.getElementById('gasUrlIn').value = GAS_URL;
-}
 
 function iniciarApp(statsInicial) {
-  document.getElementById('setup').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   if (statsInicial) aplicarStats(statsInicial);
   refreshStats();
   setInterval(refreshStats, 30000);
 }
 
-/* Inicialização */
-if (GAS_URL) {
-  document.getElementById('gasUrlIn').value = GAS_URL;
-  api({ action: 'stats' })
-    .then(function(s) { if (s && s.totalVendidos !== undefined) iniciarApp(s); })
-    .catch(function() {});
-}
+/* Inicialização automática */
+api({ action: 'stats' })
+  .then(function(s) { iniciarApp(s); })
+  .catch(function() { iniciarApp(null); });
 
 /* ══════════════════════════════════════════════════════════
    CÂMERA — BarcodeDetector nativo + jsQR fallback
