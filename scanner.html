@@ -121,11 +121,7 @@ canvas{display:none;}
 .sp{width:22px;height:22px;border:3px solid var(--bd);border-top-color:var(--a);border-radius:50%;animation:spin .65s linear infinite;margin:0 auto 8px;}
 @keyframes spin{to{transform:rotate(360deg);}}
 
-/* REENVIO */
-.reenv{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:12px 14px;margin-bottom:12px;animation:pop .22s;}
-.reenv-t{font-size:.67rem;font-weight:700;color:var(--gr);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;}
-.rmsg{font-size:.73rem;margin-top:6px;padding:5px 10px;border-radius:6px;display:none;}
-.rmsg.ok{background:var(--gl);color:var(--g);display:block;}.rmsg.err{background:var(--rl);color:var(--r);display:block;}
+
 
 /* HISTÓRICO */
 .no-h{text-align:color:#C7B9A8;font-size:.75rem;padding:10px;text-align:center;}
@@ -242,13 +238,8 @@ canvas{display:none;}
     </div>
   </div>
   <div class="res" id="res-e"></div>
-  <div class="reenv" id="reenv-e" style="display:none">
-    <div class="reenv-t">📧 Reenviar ingresso por e-mail</div>
     <div class="row" style="margin:0">
-      <input type="email" class="field" id="emailIn" placeholder="email@exemplo.com" inputmode="email">
-      <button class="btn btn-b" id="btnEnv" onclick="enviarEmail()">Enviar</button>
     </div>
-    <div class="rmsg" id="renvMsg"></div>
   </div>
   <div class="div">ou insira o número do pedido</div>
   <div class="row">
@@ -349,9 +340,23 @@ async function api(params) {
   const url = new URL(GAS_URL);
   Object.keys(params).forEach(function(k){ url.searchParams.set(k, params[k]); });
   url.searchParams.set('t', Date.now());
-  const res = await fetch(url.toString(), { redirect: 'follow' });
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  return res.json();
+  let res;
+  try {
+    res = await fetch(url.toString(), { redirect: 'follow' });
+  } catch(e) {
+    throw new Error('Sem conexão com o servidor. Verifique a internet. (' + e.message + ')');
+  }
+  if (!res.ok) throw new Error('Servidor retornou erro HTTP ' + res.status);
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch(e) {
+    // GAS retornou HTML em vez de JSON — deploy provavelmente desatualizado
+    if (text.includes('script.google.com') || text.includes('<html')) {
+      throw new Error('Deploy do Apps Script desatualizado. Crie uma nova versão no GAS.');
+    }
+    throw new Error('Resposta inválida do servidor: ' + text.substring(0, 80));
+  }
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -493,7 +498,6 @@ function aplicarStats(s) {
 /* ══════════════════════════════════════════════════════════
    ENTRADA
 ══════════════════════════════════════════════════════════ */
-var PEDIDO_E = null;
 
 function validarEntrada() {
   var v = document.getElementById('manE').value.trim();
@@ -504,17 +508,16 @@ function validarEntrada() {
 document.getElementById('manE').addEventListener('keydown', function(e) { if (e.key==='Enter') validarEntrada(); });
 
 function checkin(txt) {
-  PEDIDO_E = null; ocultarReenv();
-  setRes('e', '<div class="ld"><div class="sp"></div>Verificando...</div>');
+    setRes('e', '<div class="ld"><div class="sp"></div>Verificando...</div>');
   api({ action: 'checkin', code: txt })
     .then(function(r) {
       mostrarResE(r); addHist('e', r); refreshStats();
       if (LISTA) { atualizarCache(r); renderBusca(); renderIngressos(); }
-      setTimeout(function() { setRes('e', ''); }, 6000);
+      // resultado fica visível até o próximo scan
     })
     .catch(function(e) {
       setRes('e', '<div class="rcard unk"><div class="rico">⚙️</div><div class="rtit">Erro de conexão</div><div class="rsub">' + e.message + '</div></div>');
-      setTimeout(function() { setRes('e', ''); }, 3000);
+      // erro fica visível até próximo scan
     });
 }
 
@@ -549,15 +552,6 @@ function mostrarResE(res) {
   }
   setRes('e', '<div class="rcard '+m.c+'"><div class="rico">'+m.i+'</div><div class="rtit">'+m.t+'</div><div class="rsub">'+m.s+'</div>'+chips+mkTbl(rows)+'</div>');
   som(res.status); vibra(res.status);
-  if (['valido','checkin_existente','nao_pago'].includes(res.status) && res.pedido) {
-    PEDIDO_E = res.pedido;
-    document.getElementById('emailIn').value = res.email || '';
-    document.getElementById('renvMsg').className = 'rmsg';
-    document.getElementById('renvMsg').textContent = '';
-    document.getElementById('btnEnv').disabled = false;
-    document.getElementById('btnEnv').textContent = 'Enviar';
-    document.getElementById('reenv-e').style.display = 'block';
-  }
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -577,11 +571,11 @@ function saidaOp(txt) {
     .then(function(r) {
       mostrarResS(r); addHist('s', r); refreshStats();
       if (LISTA) { atualizarCache(r); renderBusca(); renderIngressos(); }
-      setTimeout(function() { setRes('s', ''); }, 6000);
+      // resultado fica visível até o próximo scan
     })
     .catch(function(e) {
       setRes('s', '<div class="rcard unk"><div class="rico">⚙️</div><div class="rtit">Erro de conexão</div><div class="rsub">'+e.message+'</div></div>');
-      setTimeout(function() { setRes('s', ''); }, 3000);
+      // erro fica visível até próximo scan
     });
 }
 
@@ -739,22 +733,6 @@ function addHist(t, r) {
 /* ══════════════════════════════════════════════════════════
    REENVIO E-MAIL
 ══════════════════════════════════════════════════════════ */
-function enviarEmail() {
-  if (!PEDIDO_E) return;
-  var em = document.getElementById('emailIn').value.trim();
-  if (!em) { msgR(false,'Informe um e-mail válido.'); return; }
-  var btn = document.getElementById('btnEnv'); btn.disabled=true; btn.textContent='…';
-  api({ action: 'reenviar', pedido: PEDIDO_E, email: em })
-    .then(function(r) {
-      btn.textContent = 'Enviar';
-      if (r.ok) msgR(true, '✅ Enviado para '+r.email);
-      else { btn.disabled=false; msgR(false,'❌ '+r.erro); }
-    })
-    .catch(function(e) { btn.disabled=false; btn.textContent='Enviar'; msgR(false,'❌ '+e.message); });
-}
-function msgR(ok,msg) { var el=document.getElementById('renvMsg'); el.textContent=msg; el.className='rmsg '+(ok?'ok':'err'); }
-function ocultarReenv() { document.getElementById('reenv-e').style.display='none'; }
-document.getElementById('emailIn').addEventListener('keydown', function(e) { if(e.key==='Enter') enviarEmail(); });
 
 /* ══════════════════════════════════════════════════════════
    UTILITÁRIOS
